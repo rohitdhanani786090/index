@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Login Page with Gemini AI</title>
+    <title>Sleek AI Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Custom styles to ensure Inter font and overall layout */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f2f5;
+            background-color: #e2e8f0; /* Softer light gray background */
             display: flex;
             justify-content: center;
             align-items: center;
@@ -17,314 +17,259 @@
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
+            overflow: hidden; /* Prevent body scrollbar if content slightly exceeds viewport */
         }
-        .login-container {
-            background-color: #ffffff;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 400px;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        /* Custom scrollbar for the chat area */
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
         }
-        .profile-display, .gemini-ai-section {
-            background-color: #e0f2f7; /* Light blue background for profile info */
-            padding: 20px;
-            border-radius: 8px;
-            text-align: left;
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f0f4f8; /* Lighter track */
+            border-radius: 10px;
         }
-        .profile-display img {
-            border-radius: 50%;
-            width: 80px;
-            height: 80px;
-            object-fit: cover;
-            border: 2px solid #3b82f6; /* Blue border */
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: #a0aec0; /* Softer thumb color */
+            border-radius: 10px;
         }
-        .sign-out-button {
-            background-color: #ef4444; /* Red for sign out */
-            color: white;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-            font-weight: 600;
-            border: none;
-            width: fit-content;
-            margin: 0 auto; /* Center the button */
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: #718096; /* Darker on hover */
         }
-        .sign-out-button:hover {
-            background-color: #dc2626;
+
+        /* Loading spinner animation */
+        .loader {
+            border-top-color: #4299e1; /* Tailwind blue-500 */
+            border-right-color: #4299e1;
+            border-bottom-color: #4299e1;
+            animation: spin 1s linear infinite;
         }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
         /* Custom message box styling */
         .message-box {
             position: fixed;
-            top: 20px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            background-color: #4CAF50; /* Green for success */
-            color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25); /* More pronounced shadow */
             z-index: 1000;
-            display: none; /* Hidden by default */
-            font-weight: 500;
+            display: none;
+            max-width: 90%;
+            text-align: center;
+            transition: all 0.3s ease-in-out; /* Smooth transition */
+            opacity: 0;
+            visibility: hidden;
         }
-        .message-box.error {
-            background-color: #f44336; /* Red for error */
+        .message-box.show {
+            opacity: 1;
+            visibility: visible;
         }
-        .gemini-input-area {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            width: 100%;
-        }
-        .gemini-input-area textarea {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            resize: vertical;
-        }
-        .gemini-input-area button {
-            background-color: #1a73e8; /* Google blue */
+        .message-box button {
+            margin-top: 16px;
+            padding: 10px 20px; /* Larger buttons */
+            background-color: #3b82f6;
             color: white;
-            padding: 10px 20px;
+            border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            font-weight: 600;
-            border: none;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            font-weight: 600; /* Bolder text */
         }
-        .gemini-input-area button:hover {
-            background-color: #1558b0;
+        .message-box button:hover {
+            background-color: #2563eb;
+            transform: translateY(-1px); /* Slight lift on hover */
         }
-        .gemini-response {
-            background-color: #f0f8ff;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: left;
-            white-space: pre-wrap; /* Preserves whitespace and line breaks */
-            word-wrap: break-word; /* Breaks long words */
+
+        /* Message bubble animation */
+        .message-bubble-enter {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .message-bubble-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
         }
     </style>
 </head>
 <body>
-
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script type="module">
-        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
-        window.GoogleGenerativeAI = GoogleGenerativeAI; // Make it globally accessible
-    </script>
-
-    <div class="login-container">
-        <h1 class="text-3xl font-bold text-gray-800 mb-4">Welcome</h1>
-        <p class="text-gray-600 mb-6">Sign in with your Google account to continue.</p>
-
-        <div id="g_id_onload"
-            data-client_id="624825749371-rjrd5v0innga99tsjv5aun5k4mdofnaq.apps.googleusercontent.com"
-            data-callback="handleCredentialResponse"
-            data-auto_prompt="false">
-        </div>
-        <div class="g_id_signin"
-            data-type="standard"
-            data-size="large"
-            data-theme="outline"
-            data-text="sign_in_with"
-            data-shape="rectangular"
-            data-logo_alignment="left">
+    <div class="flex flex-col bg-white shadow-2xl rounded-2xl overflow-hidden w-full max-w-md md:max-w-lg lg:max-w-xl h-[85vh] max-h-[750px] transform transition-all duration-300 ease-in-out hover:scale-[1.01]">
+        <div class="bg-gradient-to-r from-blue-600 to-purple-700 text-white p-5 text-center text-2xl font-extrabold rounded-t-2xl shadow-xl tracking-wide">
+            Intelligent AI Assistant
         </div>
 
-        <div id="profile-display" class="profile-display">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-3">Logged In As:</h2>
-            <img id="profile-picture" src="" alt="Profile Picture" class="mb-2">
-            <p class="text-lg font-medium text-gray-800" id="profile-name"></p>
-            <p class="text-md text-gray-600" id="profile-email"></p>
-            <button class="sign-out-button mt-4" onclick="signOut()">Sign Out</button>
-        </div>
-
-        <div id="gemini-ai-section" class="gemini-ai-section mt-6">
-            <h2 class="text-2xl font-semibold text-gray-700 mb-3">Ask Gemini AI:</h2>
-            <div class="gemini-input-area">
-                <textarea id="gemini-prompt" rows="4" placeholder="Enter your prompt here..."></textarea>
-                <button onclick="askGemini()">Ask Gemini</button>
+        <div id="chat-messages" class="flex-1 p-5 overflow-y-auto space-y-4 bg-gray-100 relative">
+            <div class="flex justify-start">
+                <div class="bg-gray-300 text-gray-800 p-3 rounded-xl max-w-[80%] shadow-md message-bubble-enter message-bubble-enter-active">
+                    Hello! I'm your intelligent AI assistant. How can I assist you today?
+                </div>
             </div>
-            <div id="gemini-response" class="gemini-response mt-4 hidden">
-                <p class="font-bold">Gemini's Response:</p>
-                <p id="gemini-response-text"></p>
-            </div>
-            <p id="gemini-loading" class="text-gray-500 mt-2 hidden">Loading...</p>
+        </div>
+
+        <div class="p-4 bg-white border-t border-gray-200 flex items-center space-x-3">
+            <input type="text" id="user-input" placeholder="Ask me anything..."
+                   class="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-3 focus:ring-blue-300 text-gray-800 text-lg transition duration-200 ease-in-out shadow-sm hover:border-blue-400">
+            <button id="send-button"
+                    class="bg-blue-600 text-white p-3 rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-3 focus:ring-blue-300 transition duration-300 ease-in-out transform hover:scale-105 active:scale-95 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+            </button>
+        </div>
+
+        <div id="loading-indicator" class="hidden absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-b-2xl transition-opacity duration-300 ease-in-out">
+            <div class="loader ease-linear rounded-full border-4 h-12 w-12 border-t-4 border-gray-200 animate-spin"></div>
+            <p class="ml-4 text-gray-600 font-semibold text-lg">Thinking...</p>
         </div>
     </div>
 
-    <div id="message-box" class="message-box"></div>
+    <div id="custom-message-box" class="message-box">
+        <p id="message-box-content" class="text-gray-800 text-lg font-medium mb-4"></p>
+        <button id="message-box-ok">Got It!</button>
+    </div>
 
     <script>
-        const GOOGLE_CLIENT_ID = "624825749371-rjrd5v0innga99tsjv5aun5k4mdofnaq.apps.googleusercontent.com";
-        // IMPORTANT: Replace with your actual Gemini API Key from Google AI Studio.
-        // DO NOT use this in production. For demonstration only.
-        const GEMINI_API_KEY = "YAIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw"; // <--- REPLACE THIS WITH YOUR KEY
+        // Get references to HTML elements
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const customMessageBox = document.getElementById('custom-message-box');
+        const messageBoxContent = document.getElementById('message-box-content');
+        const messageBoxOkButton = document.getElementById('message-box-ok');
 
-        let geminiModel; // To store the Gemini model instance
+        // Chat history to maintain context for the AI
+        let chatHistory = [{ role: "model", parts: [{ text: "Hello! I'm your intelligent AI assistant. How can I assist you today?" }] }];
 
-        // Function to display custom messages (replaces alert())
-        function showMessage(message, type = 'success') {
-            const messageBox = document.getElementById('message-box');
-            messageBox.textContent = message;
-            messageBox.className = 'message-box'; // Reset classes
-            if (type === 'error') {
-                messageBox.classList.add('error');
+        // Function to display messages in the chat interface with animation
+        function displayMessage(sender, text) {
+            const messageDiv = document.createElement('div');
+            let messageContent = '';
+
+            if (sender === 'user') {
+                messageDiv.className = 'flex justify-end message-bubble-enter';
+                messageContent = `<div class="bg-blue-600 text-white p-3 rounded-xl max-w-[80%] shadow-md">${text}</div>`;
+            } else { // sender === 'ai'
+                messageDiv.className = 'flex justify-start message-bubble-enter';
+                messageContent = `<div class="bg-gray-300 text-gray-800 p-3 rounded-xl max-w-[80%] shadow-md">${text}</div>`;
             }
-            messageBox.style.display = 'block';
+            messageDiv.innerHTML = messageContent;
+            chatMessages.appendChild(messageDiv);
 
+            // Trigger the animation by adding the active class after a short delay
             setTimeout(() => {
-                messageBox.style.display = 'none';
-            }, 3000); // Hide after 3 seconds
+                messageDiv.classList.add('message-bubble-enter-active');
+            }, 10);
+
+            // Scroll to the bottom of the chat to show the latest message
+            chatMessages.scrollTop = chatMessages.scrollHeight;
         }
 
-        // This function is called when the Google Sign-In button is clicked and a response is received.
-        function handleCredentialResponse(response) {
-            console.log("Encoded ID Token: " + response.credential);
-
-            try {
-                const decodedToken = parseJwt(response.credential);
-                console.log("Decoded Token:", decodedToken);
-
-                const profileDisplay = document.getElementById('profile-display');
-                const profilePicture = document.getElementById('profile-picture');
-                const profileName = document.getElementById('profile-name');
-                const profileEmail = document.getElementById('profile-email');
-                const loginContainer = document.querySelector('.login-container');
-                const googleSignInButton = document.querySelector('.g_id_signin');
-                const welcomeHeading = loginContainer.querySelector('h1');
-                const welcomeParagraph = loginContainer.querySelector('p');
-                const geminiAiSection = document.getElementById('gemini-ai-section');
-
-                // Update profile display
-                profilePicture.src = decodedToken.picture || 'https://placehold.co/80x80/aabbcc/ffffff?text=User'; // Fallback image
-                profileName.textContent = decodedToken.name || 'N/A';
-                profileEmail.textContent = decodedToken.email || 'N/A';
-
-                // Show profile display and Gemini AI section, hide login button and welcome text
-                profileDisplay.style.display = 'flex';
-                geminiAiSection.style.display = 'flex'; // Show Gemini AI section
-                googleSignInButton.style.display = 'none';
-                welcomeHeading.style.display = 'none';
-                welcomeParagraph.style.display = 'none';
-
-                showMessage('Successfully logged in! You can now chat with Gemini AI.', 'success');
-
-                // Initialize Gemini AI model after successful login
-                initializeGemini();
-
-            } catch (error) {
-                console.error("Error parsing JWT or during login process:", error);
-                showMessage('Login failed: Invalid token or processing error.', 'error');
-            }
+        // Function to show the loading indicator
+        function showLoading() {
+            loadingIndicator.classList.remove('hidden');
+            loadingIndicator.style.opacity = '1'; /* Ensure opacity for transition */
         }
 
-        // Helper function to parse JWT (JSON Web Token)
-        function parseJwt(token) {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            return JSON.parse(jsonPayload);
+        // Function to hide the loading indicator
+        function hideLoading() {
+            loadingIndicator.style.opacity = '0';
+            setTimeout(() => {
+                loadingIndicator.classList.add('hidden');
+            }, 300); /* Match CSS transition duration */
         }
 
-        // Function to handle user sign out
-        function signOut() {
-            google.accounts.id.disableAutoSelect();
-
-            const profileDisplay = document.getElementById('profile-display');
-            const googleSignInButton = document.querySelector('.g_id_signin');
-            const loginContainer = document.querySelector('.login-container');
-            const welcomeHeading = loginContainer.querySelector('h1');
-            const welcomeParagraph = loginContainer.querySelector('p');
-            const geminiAiSection = document.getElementById('gemini-ai-section');
-
-            // Hide profile display and Gemini AI section, show login button and welcome text
-            profileDisplay.style.display = 'none';
-            geminiAiSection.style.display = 'none'; // Hide Gemini AI section
-            googleSignInButton.style.display = 'block';
-            welcomeHeading.style.display = 'block';
-            welcomeParagraph.style.display = 'block';
-
-            // Clear Gemini response area
-            document.getElementById('gemini-prompt').value = '';
-            document.getElementById('gemini-response-text').textContent = '';
-            document.getElementById('gemini-response').classList.add('hidden');
-            document.getElementById('gemini-loading').classList.add('hidden');
-
-
-            showMessage('Successfully signed out.', 'success');
+        // Custom message box function (replaces alert())
+        function showMessageBox(message) {
+            messageBoxContent.textContent = message;
+            customMessageBox.classList.add('show');
         }
 
-        // Initialize Gemini AI
-        function initializeGemini() {
-            if (typeof GoogleGenerativeAI !== 'undefined' && GEMINI_API_KEY !== "AIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw") {
-                const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-                geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" }); // You can use "gemini-pro" or other available models
-                console.log("Gemini AI model initialized.");
-            } else {
-                console.error("Gemini API key is not set or GoogleGenerativeAI not loaded. Please replace 'AIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw' with your actual API key and ensure the SDK loads.");
-                showMessage('Gemini AI could not be initialized. Check console for details.', 'error');
-            }
-        }
+        // Event listener for the OK button in the custom message box
+        messageBoxOkButton.addEventListener('click', () => {
+            customMessageBox.classList.remove('show');
+        });
 
-        // Function to send a prompt to Gemini AI
-        async function askGemini() {
-            if (!geminiModel) {
-                showMessage('Gemini AI not initialized. Please log in first.', 'error');
+        // Function to send message to the AI and get a response
+        async function sendMessage() {
+            const userText = userInput.value.trim();
+            if (userText === '') {
+                showMessageBox('Please type a message before sending.');
                 return;
             }
 
-            const prompt = document.getElementById('gemini-prompt').value.trim();
-            const geminiResponseText = document.getElementById('gemini-response-text');
-            const geminiResponseContainer = document.getElementById('gemini-response');
-            const geminiLoading = document.getElementById('gemini-loading');
-            const askButton = document.querySelector('.gemini-input-area button');
+            // Display user message
+            displayMessage('user', userText);
+            // Add user message to chat history
+            chatHistory.push({ role: "user", parts: [{ text: userText }] });
 
-            if (prompt === '') {
-                showMessage('Please enter a prompt for Gemini.', 'error');
-                return;
-            }
-
-            geminiResponseText.textContent = '';
-            geminiResponseContainer.classList.add('hidden');
-            geminiLoading.classList.remove('hidden');
-            askButton.disabled = true; // Disable button while loading
+            // Clear input field
+            userInput.value = '';
+            showLoading();
 
             try {
-                const result = await geminiModel.generateContent(prompt);
-                const response = await result.response;
-                const text = response.text();
-                geminiResponseText.textContent = text;
-                geminiResponseContainer.classList.remove('hidden');
-                showMessage('Gemini response received!', 'success');
+                // Gemini API endpoint (using gemini-2.0-flash as default)
+                // IMPORTANT: Replace "YOUR_API_KEY_HERE" with your actual Gemini API Key.
+                // For Canvas environment, leave it as an empty string; it will be automatically provided.
+                const apiKey = "AIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw";
+                // If running locally, uncomment the line below and paste your actual API Key:
+                // const apiKey = "YOUR_ACTUAL_GEMINI_API_KEY"; // Replace with your key from Google AI Studio
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: chatHistory
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API error: ${response.status} ${response.statusText} - ${errorData.error.message}`);
+                }
+
+                const result = await response.json();
+
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const aiText = result.candidates[0].content.parts[0].text;
+                    displayMessage('ai', aiText);
+                    // Add AI response to chat history
+                    chatHistory.push({ role: "model", parts: [{ text: aiText }] });
+                } else {
+                    displayMessage('ai', 'Sorry, I could not get a clear response from the AI.');
+                    showMessageBox('Error: AI provided an unexpected or empty response.');
+                }
             } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                showMessage('Error getting response from Gemini AI. Please try again.', 'error');
-                geminiResponseText.textContent = 'Error: Could not get a response from Gemini AI.';
-                geminiResponseContainer.classList.remove('hidden');
+                console.error('Error fetching from Gemini API:', error);
+                displayMessage('ai', 'Oops! Something went wrong while connecting to the AI. Please try again.');
+                showMessageBox(`Connection Error: ${error.message}. Ensure your API key is correct and you have network access.`);
             } finally {
-                geminiLoading.classList.add('hidden');
-                askButton.disabled = false; // Re-enable button
+                hideLoading();
             }
         }
 
-        // Ensure the Google Identity Services library is loaded and initialized
-        window.onload = function () {
-            console.log("Page loaded. Google Identity Services should be initializing.");
-        };
+        // Event listener for the send button
+        sendButton.addEventListener('click', sendMessage);
+
+        // Event listener for the Enter key in the input field
+        userInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
     </script>
 </body>
 </html>
