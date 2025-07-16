@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Login Page</title>
-    <!-- Load Tailwind CSS from CDN for easy styling -->
+    <title>Google Login Page with Gemini AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom styles to ensure Inter font and overall layout */
@@ -31,7 +30,7 @@
             flex-direction: column;
             gap: 20px;
         }
-        .profile-display {
+        .profile-display, .gemini-ai-section {
             background-color: #e0f2f7; /* Light blue background for profile info */
             padding: 20px;
             border-radius: 8px;
@@ -81,33 +80,68 @@
         .message-box.error {
             background-color: #f44336; /* Red for error */
         }
+        .gemini-input-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        .gemini-input-area textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+        .gemini-input-area button {
+            background-color: #1a73e8; /* Google blue */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            font-weight: 600;
+            border: none;
+        }
+        .gemini-input-area button:hover {
+            background-color: #1558b0;
+        }
+        .gemini-response {
+            background-color: #f0f8ff;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: left;
+            white-space: pre-wrap; /* Preserves whitespace and line breaks */
+            word-wrap: break-word; /* Breaks long words */
+        }
     </style>
 </head>
 <body>
 
-    <!-- Google Identity Services client library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+        window.GoogleGenerativeAI = GoogleGenerativeAI; // Make it globally accessible
+    </script>
 
     <div class="login-container">
         <h1 class="text-3xl font-bold text-gray-800 mb-4">Welcome</h1>
         <p class="text-gray-600 mb-6">Sign in with your Google account to continue.</p>
 
-        <!-- Google Sign-In button container -->
         <div id="g_id_onload"
-             data-client_id="624825749371-rjrd5v0innga99tsjv5aun5k4mdofnaq.apps.googleusercontent.com"
-             data-callback="handleCredentialResponse"
-             data-auto_prompt="false">
+            data-client_id="624825749371-rjrd5v0innga99tsjv5aun5k4mdofnaq.apps.googleusercontent.com"
+            data-callback="handleCredentialResponse"
+            data-auto_prompt="false">
         </div>
         <div class="g_id_signin"
-             data-type="standard"
-             data-size="large"
-             data-theme="outline"
-             data-text="sign_in_with"
-             data-shape="rectangular"
-             data-logo_alignment="left">
+            data-type="standard"
+            data-size="large"
+            data-theme="outline"
+            data-text="sign_in_with"
+            data-shape="rectangular"
+            data-logo_alignment="left">
         </div>
 
-        <!-- Profile display area (initially hidden) -->
         <div id="profile-display" class="profile-display">
             <h2 class="text-2xl font-semibold text-gray-700 mb-3">Logged In As:</h2>
             <img id="profile-picture" src="" alt="Profile Picture" class="mb-2">
@@ -115,17 +149,30 @@
             <p class="text-md text-gray-600" id="profile-email"></p>
             <button class="sign-out-button mt-4" onclick="signOut()">Sign Out</button>
         </div>
+
+        <div id="gemini-ai-section" class="gemini-ai-section mt-6">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-3">Ask Gemini AI:</h2>
+            <div class="gemini-input-area">
+                <textarea id="gemini-prompt" rows="4" placeholder="Enter your prompt here..."></textarea>
+                <button onclick="askGemini()">Ask Gemini</button>
+            </div>
+            <div id="gemini-response" class="gemini-response mt-4 hidden">
+                <p class="font-bold">Gemini's Response:</p>
+                <p id="gemini-response-text"></p>
+            </div>
+            <p id="gemini-loading" class="text-gray-500 mt-2 hidden">Loading...</p>
+        </div>
     </div>
 
-    <!-- Custom Message Box -->
     <div id="message-box" class="message-box"></div>
 
     <script>
-        // Placeholder for the Google Client ID.
-        // IMPORTANT: Replace this with your actual Client ID from Google Cloud Console.
-        // Go to: https://console.cloud.google.com/apis/credentials
-        // Create an OAuth 2.0 Client ID for "Web application".
         const GOOGLE_CLIENT_ID = "624825749371-rjrd5v0innga99tsjv5aun5k4mdofnaq.apps.googleusercontent.com";
+        // IMPORTANT: Replace with your actual Gemini API Key from Google AI Studio.
+        // DO NOT use this in production. For demonstration only.
+        const GEMINI_API_KEY = "YAIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw"; // <--- REPLACE THIS WITH YOUR KEY
+
+        let geminiModel; // To store the Gemini model instance
 
         // Function to display custom messages (replaces alert())
         function showMessage(message, type = 'success') {
@@ -144,13 +191,9 @@
 
         // This function is called when the Google Sign-In button is clicked and a response is received.
         function handleCredentialResponse(response) {
-            // The 'response' object contains the ID token.
-            // In a real application, you would send this ID token to your backend server
-            // for verification and user session management.
             console.log("Encoded ID Token: " + response.credential);
 
             try {
-                // Decode the JWT token to get user information (client-side only for demonstration)
                 const decodedToken = parseJwt(response.credential);
                 console.log("Decoded Token:", decodedToken);
 
@@ -160,24 +203,30 @@
                 const profileEmail = document.getElementById('profile-email');
                 const loginContainer = document.querySelector('.login-container');
                 const googleSignInButton = document.querySelector('.g_id_signin');
+                const welcomeHeading = loginContainer.querySelector('h1');
+                const welcomeParagraph = loginContainer.querySelector('p');
+                const geminiAiSection = document.getElementById('gemini-ai-section');
 
                 // Update profile display
                 profilePicture.src = decodedToken.picture || 'https://placehold.co/80x80/aabbcc/ffffff?text=User'; // Fallback image
                 profileName.textContent = decodedToken.name || 'N/A';
                 profileEmail.textContent = decodedToken.email || 'N/A';
 
-                // Show profile display and hide login button
+                // Show profile display and Gemini AI section, hide login button and welcome text
                 profileDisplay.style.display = 'flex';
+                geminiAiSection.style.display = 'flex'; // Show Gemini AI section
                 googleSignInButton.style.display = 'none';
-                loginContainer.querySelector('h1').style.display = 'none';
-                loginContainer.querySelector('p').style.display = 'none';
+                welcomeHeading.style.display = 'none';
+                welcomeParagraph.style.display = 'none';
 
+                showMessage('Successfully logged in! You can now chat with Gemini AI.', 'success');
 
-                showMessage('Successfully logged in!', 'success');
+                // Initialize Gemini AI model after successful login
+                initializeGemini();
 
             } catch (error) {
-                console.error("Error parsing JWT:", error);
-                showMessage('Login failed: Invalid token.', 'error');
+                console.error("Error parsing JWT or during login process:", error);
+                showMessage('Login failed: Invalid token or processing error.', 'error');
             }
         }
 
@@ -188,40 +237,92 @@
             const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
                 return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
             }).join(''));
-
             return JSON.parse(jsonPayload);
         }
 
         // Function to handle user sign out
         function signOut() {
-            // Google Identity Services provides a global `google.accounts.id` object.
-            // The `disableAutoSelect()` method clears the Google session from the browser.
-            // This is important for a complete sign-out experience.
             google.accounts.id.disableAutoSelect();
-
-            // You might also want to revoke tokens if you have a backend,
-            // but for client-side only, clearing the session is sufficient.
 
             const profileDisplay = document.getElementById('profile-display');
             const googleSignInButton = document.querySelector('.g_id_signin');
             const loginContainer = document.querySelector('.login-container');
+            const welcomeHeading = loginContainer.querySelector('h1');
+            const welcomeParagraph = loginContainer.querySelector('p');
+            const geminiAiSection = document.getElementById('gemini-ai-section');
 
-            // Hide profile display and show login button
+            // Hide profile display and Gemini AI section, show login button and welcome text
             profileDisplay.style.display = 'none';
+            geminiAiSection.style.display = 'none'; // Hide Gemini AI section
             googleSignInButton.style.display = 'block';
-            loginContainer.querySelector('h1').style.display = 'block';
-            loginContainer.querySelector('p').style.display = 'block';
+            welcomeHeading.style.display = 'block';
+            welcomeParagraph.style.display = 'block';
+
+            // Clear Gemini response area
+            document.getElementById('gemini-prompt').value = '';
+            document.getElementById('gemini-response-text').textContent = '';
+            document.getElementById('gemini-response').classList.add('hidden');
+            document.getElementById('gemini-loading').classList.add('hidden');
 
 
             showMessage('Successfully signed out.', 'success');
         }
 
+        // Initialize Gemini AI
+        function initializeGemini() {
+            if (typeof GoogleGenerativeAI !== 'undefined' && GEMINI_API_KEY !== "AIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw") {
+                const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+                geminiModel = genAI.getGenerativeModel({ model: "gemini-pro" }); // You can use "gemini-pro" or other available models
+                console.log("Gemini AI model initialized.");
+            } else {
+                console.error("Gemini API key is not set or GoogleGenerativeAI not loaded. Please replace 'AIzaSyDM15cPywybPt0xLdRb5c8vr3cK8y1CzTw' with your actual API key and ensure the SDK loads.");
+                showMessage('Gemini AI could not be initialized. Check console for details.', 'error');
+            }
+        }
+
+        // Function to send a prompt to Gemini AI
+        async function askGemini() {
+            if (!geminiModel) {
+                showMessage('Gemini AI not initialized. Please log in first.', 'error');
+                return;
+            }
+
+            const prompt = document.getElementById('gemini-prompt').value.trim();
+            const geminiResponseText = document.getElementById('gemini-response-text');
+            const geminiResponseContainer = document.getElementById('gemini-response');
+            const geminiLoading = document.getElementById('gemini-loading');
+            const askButton = document.querySelector('.gemini-input-area button');
+
+            if (prompt === '') {
+                showMessage('Please enter a prompt for Gemini.', 'error');
+                return;
+            }
+
+            geminiResponseText.textContent = '';
+            geminiResponseContainer.classList.add('hidden');
+            geminiLoading.classList.remove('hidden');
+            askButton.disabled = true; // Disable button while loading
+
+            try {
+                const result = await geminiModel.generateContent(prompt);
+                const response = await result.response;
+                const text = response.text();
+                geminiResponseText.textContent = text;
+                geminiResponseContainer.classList.remove('hidden');
+                showMessage('Gemini response received!', 'success');
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                showMessage('Error getting response from Gemini AI. Please try again.', 'error');
+                geminiResponseText.textContent = 'Error: Could not get a response from Gemini AI.';
+                geminiResponseContainer.classList.remove('hidden');
+            } finally {
+                geminiLoading.classList.add('hidden');
+                askButton.disabled = false; // Re-enable button
+            }
+        }
+
         // Ensure the Google Identity Services library is loaded and initialized
         window.onload = function () {
-            // This ensures the Google button renders correctly after the page loads.
-            // The data-client_id and data-callback attributes on g_id_onload div
-            // are usually enough, but explicit initialization can be good for complex setups.
-            // For this simple case, the declarative setup is primary.
             console.log("Page loaded. Google Identity Services should be initializing.");
         };
     </script>
